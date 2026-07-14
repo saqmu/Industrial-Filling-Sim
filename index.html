@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Industrial Beverage Sim</title>
+    <style> body { margin: 0; overflow: hidden; background: #1a1a1a; color: white; font-family: sans-serif; } 
+            #ui { position: absolute; top: 20px; left: 20px; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <h1>🏭 Fábrica Industrial 3D</h1>
+        <p>Status do Controle USB: <span id="conn">Desconectado</span></p>
+        <p id="log">Aperte os botões do seu console...</p>
+    </div>
+
+    <!-- Importando o motor 3D Three.js -->
+    <script type="importmap">
+        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // CONFIGURAÇÃO DA CENA 3D
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // ILUMINAÇÃO INDUSTRIAL
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(5, 5, 5);
+        scene.add(light);
+        scene.add(new THREE.AmbientLight(0x404040));
+
+        // CRIAÇÃO DA GARRAFA (SIMPLIFICADA)
+        const geometry = new THREE.CylinderGeometry(0.5, 0.5, 2, 32, 1, true);
+        const material = new THREE.MeshPhongMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, side: THREE.DoubleSide });
+        const bottle = new THREE.Mesh(geometry, material);
+        bottle.position.y = 1;
+        scene.add(bottle);
+
+        // CHÃO / ESTEIRA
+        const floorGeo = new THREE.PlaneGeometry(10, 10);
+        const floorMat = new THREE.MeshPhongMaterial({ color: 0x333333 });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        scene.add(floor);
+
+        camera.position.z = 5;
+        camera.position.y = 2;
+        camera.lookAt(0, 1, 0);
+
+        // LÓGICA DO LÍQUIDO (GRAVIDADE)
+        let particles = [];
+        function createLiquid() {
+            const partGeo = new THREE.SphereGeometry(0.05, 8, 8);
+            const partMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); // Bebida verde
+            const p = new THREE.Mesh(partGeo, partMat);
+            p.position.set(0, 3, 0); // Sai da válvula lá no alto
+            scene.add(p);
+            particles.push({ mesh: p, velocity: 0 });
+        }
+
+        // LOOP DE ANIMAÇÃO E LEITURA DO BOTÃO USB
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 1. LER O USB GAMEPAD
+            const gamepads = navigator.getGamepads();
+            if (gamepads[0]) {
+                document.getElementById('conn').innerText = "CONECTADO: " + gamepads[0].id;
+                
+                // Botão 1 (JoystickButton0) - Move a garrafa
+                if (gamepads[0].buttons[0].pressed) {
+                    bottle.position.x += 0.02;
+                    document.getElementById('log').innerText = "BOTÃO 1: Movendo Esteira";
+                }
+                
+                // Botão 2 (JoystickButton1) - Enche (Gravidade)
+                if (gamepads[0].buttons[1].pressed) {
+                    createLiquid();
+                    document.getElementById('log').innerText = "BOTÃO 2: Enchendo Garrafa...";
+                }
+            }
+
+            // 2. SIMULAR GRAVIDADE NAS PARTÍCULAS
+            particles.forEach((p, index) => {
+                p.velocity -= 0.005; // Força da gravidade
+                p.mesh.position.y += p.velocity;
+
+                // Colisão com o fundo da garrafa
+                if (p.mesh.position.y < 0.1) {
+                    p.velocity = 0;
+                    p.mesh.position.y = 0.1;
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
