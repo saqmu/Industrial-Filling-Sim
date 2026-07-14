@@ -1,19 +1,28 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Industrial Beverage Sim</title>
-    <style> body { margin: 0; overflow: hidden; background: #1a1a1a; color: white; font-family: sans-serif; } 
-            #ui { position: absolute; top: 20px; left: 20px; pointer-events: none; }
+    <title>Industrial Beverage Sim v2</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #0a0a0a; color: #00ff00; font-family: 'Courier New', Courier, monospace; }
+        #ui { position: absolute; top: 20px; left: 20px; pointer-events: none; background: rgba(0,0,0,0.7); padding: 15px; border: 1px solid #00ff00; }
+        .btn-status { color: #888; margin-bottom: 5px; }
+        .active { color: #00ff00; font-weight: bold; }
     </style>
 </head>
 <body>
     <div id="ui">
-        <h1>🏭 Fábrica Industrial 3D</h1>
-        <p>Status do Controle USB: <span id="conn">Desconectado</span></p>
-        <p id="log">Aperte os botões do seu console...</p>
+        <h1>🏭 SISTEMA DE ENVASE INDUSTRIAL</h1>
+        <p>Status: <span id="conn">Aguardando Hardware...</span></p>
+        <hr>
+        <div id="debug-buttons">
+            <div id="b0" class="btn-status">BOTÃO 1 (Index 0): Ocioso</div>
+            <div id="b1" class="btn-status">BOTÃO 2 (Index 1): Ocioso</div>
+            <div id="b2" class="btn-status">BOTÃO 3 (Index 2): Ocioso</div>
+            <div id="b3" class="btn-status">BOTÃO 4 (Index 3): Ocioso</div>
+        </div>
+        <p id="instruction">Aperte um botão para calibrar...</p>
     </div>
 
-    <!-- Importando o motor 3D Three.js -->
     <script type="importmap">
         { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
     </script>
@@ -21,86 +30,63 @@
     <script type="module">
         import * as THREE from 'three';
 
-        // CONFIGURAÇÃO DA CENA 3D
+        // --- CONFIGURAÇÃO DA CENA ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // ILUMINAÇÃO INDUSTRIAL
-        const light = new THREE.DirectionalLight(0xffffff, 1);
-        light.position.set(5, 5, 5);
+        const light = new THREE.DirectionalLight(0xffffff, 1.2);
+        light.position.set(5, 10, 5);
         scene.add(light);
         scene.add(new THREE.AmbientLight(0x404040));
 
-        // CRIAÇÃO DA GARRAFA (SIMPLIFICADA)
-        const geometry = new THREE.CylinderGeometry(0.5, 0.5, 2, 32, 1, true);
-        const material = new THREE.MeshPhongMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, side: THREE.DoubleSide });
-        const bottle = new THREE.Mesh(geometry, material);
-        bottle.position.y = 1;
-        scene.add(bottle);
+        // --- GARRAFA ---
+        const bottleGroup = new THREE.Group();
+        const glassGeo = new THREE.CylinderGeometry(0.5, 0.5, 2.2, 32, 1, true);
+        const glassMat = new THREE.MeshPhongMaterial({ color: 0x88ccff, transparent: true, opacity: 0.2, side: THREE.DoubleSide });
+        const bottle = new THREE.Mesh(glassGeo, glassMat);
+        bottleGroup.add(bottle);
 
-        // CHÃO / ESTEIRA
-        const floorGeo = new THREE.PlaneGeometry(10, 10);
-        const floorMat = new THREE.MeshPhongMaterial({ color: 0x333333 });
-        const floor = new THREE.Mesh(floorGeo, floorMat);
-        floor.rotation.x = -Math.PI / 2;
+        // --- LÍQUIDO REALISTA (Massa que cresce) ---
+        const liquidGeo = new THREE.CylinderGeometry(0.48, 0.48, 2, 32);
+        const liquidMat = new THREE.MeshPhongMaterial({ color: 0x00ff44, emissive: 0x003300 });
+        const liquidMesh = new THREE.Mesh(liquidGeo, liquidMat);
+        liquidMesh.scale.set(1, 0.001, 1); // Começa vazio
+        liquidMesh.position.y = -1; // No fundo da garrafa
+        bottleGroup.add(liquidMesh);
+        scene.add(bottleGroup);
+
+        // --- CHÃO/ESTEIRA ---
+        const floor = new THREE.GridHelper(20, 20, 0x00ff00, 0x222222);
         scene.add(floor);
 
-        camera.position.z = 5;
-        camera.position.y = 2;
+        camera.position.set(0, 2, 5);
         camera.lookAt(0, 1, 0);
 
-        // LÓGICA DO LÍQUIDO (GRAVIDADE)
+        // --- PARTÍCULAS DE QUEDA ---
         let particles = [];
-        function createLiquid() {
-            const partGeo = new THREE.SphereGeometry(0.05, 8, 8);
-            const partMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); // Bebida verde
-            const p = new THREE.Mesh(partGeo, partMat);
-            p.position.set(0, 3, 0); // Sai da válvula lá no alto
+        let fillLevel = 0.001;
+
+        function dropParticle() {
+            const pGeo = new THREE.SphereGeometry(0.06, 8, 8);
+            const pMat = new THREE.MeshBasicMaterial({ color: 0x00ff44 });
+            const p = new THREE.Mesh(pGeo, pMat);
+            p.position.set(bottleGroup.position.x, 4, 0); // Sempre cai no X da garrafa
             scene.add(p);
             particles.push({ mesh: p, velocity: 0 });
         }
 
-        // LOOP DE ANIMAÇÃO E LEITURA DO BOTÃO USB
         function animate() {
             requestAnimationFrame(animate);
 
-            // 1. LER O USB GAMEPAD
             const gamepads = navigator.getGamepads();
             if (gamepads[0]) {
-                document.getElementById('conn').innerText = "CONECTADO: " + gamepads[0].id;
-                
-                // Botão 1 (JoystickButton0) - Move a garrafa
-                if (gamepads[0].buttons[0].pressed) {
-                    bottle.position.x += 0.02;
-                    document.getElementById('log').innerText = "BOTÃO 1: Movendo Esteira";
-                }
-                
-                // Botão 2 (JoystickButton1) - Enche (Gravidade)
-                if (gamepads[0].buttons[1].pressed) {
-                    createLiquid();
-                    document.getElementById('log').innerText = "BOTÃO 2: Enchendo Garrafa...";
-                }
-            }
+                const gp = gamepads[0];
+                document.getElementById('conn').innerText = "HARDWARE ONLINE";
 
-            // 2. SIMULAR GRAVIDADE NAS PARTÍCULAS
-            particles.forEach((p, index) => {
-                p.velocity -= 0.005; // Força da gravidade
-                p.mesh.position.y += p.velocity;
-
-                // Colisão com o fundo da garrafa
-                if (p.mesh.position.y < 0.1) {
-                    p.velocity = 0;
-                    p.mesh.position.y = 0.1;
-                }
-            });
-
-            renderer.render(scene, camera);
-        }
-
-        animate();
-    </script>
-</body>
-</html>
+                // Atualiza UI de Debug e Ações
+                for(let i=0; i<4; i++) {
+                    const btn = document.getElementById('b'+i);
+                    if(gp.button
