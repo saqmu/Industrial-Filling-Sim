@@ -1,26 +1,33 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Industrial Beverage Sim v2</title>
+    <title>Industrial Beverage Sim v3</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #0a0a0a; color: #00ff00; font-family: 'Courier New', Courier, monospace; }
-        #ui { position: absolute; top: 20px; left: 20px; pointer-events: none; background: rgba(0,0,0,0.7); padding: 15px; border: 1px solid #00ff00; }
-        .btn-status { color: #888; margin-bottom: 5px; }
-        .active { color: #00ff00; font-weight: bold; }
+        body { margin: 0; overflow: hidden; background: #050505; color: #00ff00; font-family: 'Courier New', monospace; }
+        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); 
+                   display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; cursor: pointer; }
+        #ui { position: absolute; top: 20px; left: 20px; background: rgba(0,20,0,0.8); padding: 15px; border: 2px solid #00ff00; }
+        .btn-status { color: #555; margin: 5px 0; font-weight: bold; }
+        .active { color: #00ff00; text-shadow: 0 0 10px #00ff00; }
+        .warning { color: yellow; font-size: 0.8em; }
     </style>
 </head>
 <body>
+
+    <div id="overlay" onclick="startApp()">
+        <h1>🏭 CLIQUE NA TELA PARA INICIAR</h1>
+        <p>Após clicar, aperte qualquer botão no seu console USB</p>
+    </div>
+
     <div id="ui">
-        <h1>🏭 SISTEMA DE ENVASE INDUSTRIAL</h1>
-        <p>Status: <span id="conn">Aguardando Hardware...</span></p>
+        <h1>SISTEMA DE ENVASE v3.0</h1>
+        <p>HARDWARE: <span id="conn" style="color: red;">OFFLINE</span></p>
         <hr>
-        <div id="debug-buttons">
-            <div id="b0" class="btn-status">BOTÃO 1 (Index 0): Ocioso</div>
-            <div id="b1" class="btn-status">BOTÃO 2 (Index 1): Ocioso</div>
-            <div id="b2" class="btn-status">BOTÃO 3 (Index 2): Ocioso</div>
-            <div id="b3" class="btn-status">BOTÃO 4 (Index 3): Ocioso</div>
-        </div>
-        <p id="instruction">Aperte um botão para calibrar...</p>
+        <div id="b0" class="btn-status">BOTÃO 1: [ ]</div>
+        <div id="b1" class="btn-status">BOTÃO 2: [ ]</div>
+        <div id="b2" class="btn-status">BOTÃO 3: [ ]</div>
+        <div id="b3" class="btn-status">BOTÃO 4: [ ]</div>
+        <p class="warning">Dica: Se não responder, mude a porta USB e atualize a página.</p>
     </div>
 
     <script type="importmap">
@@ -30,63 +37,93 @@
     <script type="module">
         import * as THREE from 'three';
 
-        // --- CONFIGURAÇÃO DA CENA ---
+        let appStarted = false;
+        window.startApp = () => {
+            document.getElementById('overlay').style.display = 'none';
+            appStarted = true;
+        };
+
+        // --- CENA 3D ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        const light = new THREE.DirectionalLight(0xffffff, 1.2);
-        light.position.set(5, 10, 5);
+        const light = new THREE.PointLight(0xffffff, 200);
+        light.position.set(2, 5, 5);
         scene.add(light);
-        scene.add(new THREE.AmbientLight(0x404040));
+        scene.add(new THREE.AmbientLight(0x202020));
 
-        // --- GARRAFA ---
+        // --- GARRAFA E LÍQUIDO ---
         const bottleGroup = new THREE.Group();
-        const glassGeo = new THREE.CylinderGeometry(0.5, 0.5, 2.2, 32, 1, true);
-        const glassMat = new THREE.MeshPhongMaterial({ color: 0x88ccff, transparent: true, opacity: 0.2, side: THREE.DoubleSide });
-        const bottle = new THREE.Mesh(glassGeo, glassMat);
-        bottleGroup.add(bottle);
+        const glass = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.5, 0.5, 2, 32, 1, true),
+            new THREE.MeshPhongMaterial({ color: 0x88ccff, transparent: true, opacity: 0.3, side: THREE.DoubleSide })
+        );
+        bottleGroup.add(glass);
 
-        // --- LÍQUIDO REALISTA (Massa que cresce) ---
-        const liquidGeo = new THREE.CylinderGeometry(0.48, 0.48, 2, 32);
-        const liquidMat = new THREE.MeshPhongMaterial({ color: 0x00ff44, emissive: 0x003300 });
-        const liquidMesh = new THREE.Mesh(liquidGeo, liquidMat);
-        liquidMesh.scale.set(1, 0.001, 1); // Começa vazio
-        liquidMesh.position.y = -1; // No fundo da garrafa
-        bottleGroup.add(liquidMesh);
+        const liquid = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.49, 0.49, 2, 32),
+            new THREE.MeshPhongMaterial({ color: 0x00ff44, emissive: 0x002200 })
+        );
+        liquid.scale.set(1, 0.001, 1);
+        liquid.position.y = -1;
+        bottleGroup.add(liquid);
         scene.add(bottleGroup);
 
-        // --- CHÃO/ESTEIRA ---
-        const floor = new THREE.GridHelper(20, 20, 0x00ff00, 0x222222);
-        scene.add(floor);
+        const grid = new THREE.GridHelper(20, 20, 0x004400, 0x111111);
+        scene.add(grid);
 
         camera.position.set(0, 2, 5);
         camera.lookAt(0, 1, 0);
 
-        // --- PARTÍCULAS DE QUEDA ---
-        let particles = [];
         let fillLevel = 0.001;
+        let particles = [];
 
-        function dropParticle() {
-            const pGeo = new THREE.SphereGeometry(0.06, 8, 8);
-            const pMat = new THREE.MeshBasicMaterial({ color: 0x00ff44 });
-            const p = new THREE.Mesh(pGeo, pMat);
-            p.position.set(bottleGroup.position.x, 4, 0); // Sempre cai no X da garrafa
+        function dropLiquid() {
+            const p = new THREE.Mesh(new THREE.SphereGeometry(0.06), new THREE.MeshBasicMaterial({color: 0x00ff44}));
+            p.position.set(bottleGroup.position.x, 4, 0);
             scene.add(p);
-            particles.push({ mesh: p, velocity: 0 });
+            particles.push({ mesh: p, vel: 0 });
         }
 
         function animate() {
             requestAnimationFrame(animate);
+            if (!appStarted) return;
 
-            const gamepads = navigator.getGamepads();
-            if (gamepads[0]) {
-                const gp = gamepads[0];
-                document.getElementById('conn').innerText = "HARDWARE ONLINE";
+            // --- BUSCA QUALQUER GAMEPAD CONECTADO ---
+            const pads = navigator.getGamepads();
+            let activePad = null;
+            for (let i = 0; i < pads.length; i++) {
+                if (pads[i] && pads[i].buttons.length > 0) {
+                    activePad = pads[i];
+                    break;
+                }
+            }
 
-                // Atualiza UI de Debug e Ações
-                for(let i=0; i<4; i++) {
-                    const btn = document.getElementById('b'+i);
-                    if(gp.button
+            if (activePad) {
+                document.getElementById('conn').innerText = "ONLINE (" + activePad.id.substring(0,10) + "...)";
+                document.getElementById('conn').style.color = "#00ff00";
+
+                // Testar os primeiros 4 botões
+                for (let i = 0; i < 4; i++) {
+                    const btnUI = document.getElementById('b' + i);
+                    if (activePad.buttons[i] && activePad.buttons[i].pressed) {
+                        btnUI.className = "btn-status active";
+                        btnUI.innerText = `BOTÃO ${i+1}: ATIVADO!`;
+
+                        // Ações
+                        if(i === 0) bottleGroup.position.x -= 0.05; // Botão 1 move esquerda
+                        if(i === 1) { dropLiquid(); if(fillLevel < 1) fillLevel += 0.005; } // Botão 2 enche
+                        if(i === 2) bottleGroup.position.x += 0.05; // Botão 3 move direita
+                        if(i === 3) { fillLevel = 0.001; bottleGroup.position.x = 0; } // Botão 4 reseta
+                    } else {
+                        btnUI.className = "btn-status";
+                        btnUI.innerText = `BOTÃO ${i+1}: [ ]`;
+                    }
+                }
+            }
+
+            // Atualiza líqu
+    
