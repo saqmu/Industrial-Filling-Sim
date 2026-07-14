@@ -1,29 +1,28 @@
-# 🏭 Beverage Industrial Digital Twin - Simulação de Envase 3D
+# 🏭 Industrial-Filling-Sim: Beverage Digital Twin
 
-Este projeto consiste em uma célula de manufatura automatizada para envase de bebidas, controlada por um **console físico externo via USB**. O objetivo é criar um "Gêmeo Digital" onde a física do mundo real (gravidade e fluidez) é replicada em um ambiente 3D.
+Este projeto é uma simulação industrial realista de uma linha de produção de bebidas, controlada por um **console físico externo (Hardware)**. O sistema utiliza física avançada de fluidos e gravidade para replicar um ambiente de fábrica em 3D.
 
-## 🕹️ Controle de Hardware (Mapeamento dos Botões)
+## 🕹️ Controle de Hardware (HID Interface)
 
-O console possui 4 botões de acionamento industrial com as seguintes funções programadas:
+O sistema é operado através de um console USB reconhecido como **USB Gamepad**, mapeado da seguinte forma:
 
-| Botão | Ação Industrial | Descrição Técnica |
+| Botão Físico | Ação no Software | Função Industrial |
 | :--- | :--- | :--- |
-| **01** | **Alimentação** | Aciona a esteira para posicionar uma garrafa vazia sob a válvula. |
-| **02** | **Envase (Filling)** | Abre a válvula de fluido. Utiliza física de partículas para simular o preenchimento. |
-| **03** | **Lacramento** | Aciona a prensa pneumática para colocação de tampas/rolhas. |
-| **04** | **Expedição** | Libera a garrafa pronta para o estoque e gera log de produção no sistema. |
+| **Botão 01** | `JoystickButton0` | **Esteira:** Posiciona a garrafa vazia. |
+| **Botão 02** | `JoystickButton1` | **Envase:** Abre a válvula (Física de Gravidade). |
+| **Botão 03** | `JoystickButton2` | **Tampador:** Aplica o lacre na garrafa. |
+| **Botão 04** | `JoystickButton3` | **Expedição:** Move para o estoque e gera Log. |
 
-## 💧 Simulação Realista e Gravidade
+## 💧 Realismo e Física de Fluidos
+Para atingir o nível de realismo industrial desejado:
+- **Gravidade Dinâmica:** O líquido possui massa e cai conforme a aceleração da gravidade.
+- **Colisores 3D:** As garrafas possuem malhas de colisão que retêm o líquido.
+- **Simulação de Partículas:** O fluxo de bebida reage ao impacto e ao preenchimento em tempo real.
 
-Para garantir o realismo da "empresa", a simulação utiliza:
-- **Gravity Physics:** O líquido só flui se a válvula estiver aberta e a garrafa posicionada abaixo.
-- **Fluid Dynamics:** O volume do líquido reage à inclinação da garrafa e ao impacto da queda.
-- **Collision Detection:** Sensores detectam se a garrafa transbordou ou se está vazia.
-
-## 🛠️ Tecnologias Utilizadas
-- **3D Engine:** Unity (C#) para simulação de física e renderização.
-- **Hardware:** Console USB Customizado (Interface HID).
-- **Controle de Versão:** GitHub para documentação e código-fonte.
+## 📂 Estrutura do Repositório
+- `/simulation`: Contém os scripts C# para controle da lógica industrial na Unity.
+- `/hardware`: Documentação técnica da interface USB.
+- `/assets`: Modelos 3D e materiais da fábrica.
 
 ---
-*Status do Projeto: Em Desenvolvimento (Fase de Integração de Hardware)*
+*Status: Hardware mapeado e lógica de controle em desenvolvimento.*
